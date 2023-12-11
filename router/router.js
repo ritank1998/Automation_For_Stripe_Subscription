@@ -1,5 +1,5 @@
 import express from "express"
-import {listsubscriptions,deleteProduct,sendInvoice,createInvoice,adminKeyValidation,cancelSubs,createCustomer,getSubscription, createProduct , updateProd , createSession , updateSubs } from "../route/route.js"
+import {subscriptionStatus,retrieveInvoice,deleteProduct,createInvoice,adminKeyValidation,cancelSubs,createCustomer,getSubscription, createProduct , updateProd , createSession , updateSubscription } from "../route/route.js"
 const router = express.Router()
 
 //Admin Key Validation
@@ -13,13 +13,16 @@ router.put("/updateproduct" , updateProd)
 //Api on the User end
 router.post("/createcustomer" , createCustomer)
 router.post("/session" , createSession)
-router.get("/getsubscription" , getSubscription)
+router.post("/getsubscription" , getSubscription)
 router.post("/cancelsubscription" , cancelSubs)
-router.post("/updatesubscription" , updateSubs)
+router.post("/updatesubscription" , updateSubscription)
 router.post("/invoice" , createInvoice)
-router.post("/sendinvoice" , sendInvoice)
-router.post("/deleteproduct" , deleteProduct)
-router.get("/getsubscriptionlist" , listsubscriptions)
+router.delete("/deleteproduct" , deleteProduct)
+router.post("/getinvoice" , retrieveInvoice)
+router.post("/status" , subscriptionStatus)
+
+
+
 
 
 

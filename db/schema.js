@@ -36,11 +36,15 @@ export const userDetails = db2.model("userDetails", mongoose.Schema({
     subscription_Id: {
         type: String
     },
-    InvoiceId :{
+    checkout_session_Id :{
+        type: String,
+    },
+    paymentDate: {
+        type: Date,
+    },
+    paymentStatus: {
         type: String,
     }
 }))
-
-
 
 

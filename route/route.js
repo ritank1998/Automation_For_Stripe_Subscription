@@ -7,9 +7,10 @@
 
 
 import bodyParser from "body-parser";
-import CircularJSON from "circular-json";
+import CircularJSON from "circular-json"
 import Stripe from "stripe";
 import dotenv from "dotenv"
+import cron from 'node-cron'
 import { productDetails, userDetails } from "../db/schema.js";
 
 
@@ -24,8 +25,11 @@ const STRIPE_KEY = 'sk_test_51Nv0dVSHUS8UbeVicJZf3XZJf72DL9Fs3HP1rXnQzHtaXxMKXwW
 export const createProduct = async (req, res) => {
     const stripe = new Stripe(STRIPE_KEY)
     try {
-        const { prod_name, unit_amount } = req.body
-        const amt = unit_amount * 100
+        const { name,  description } = req.body
+        console.log(description)
+        const amt =  description * 100
+        console.log(amt)
+        console.log(name)
         const price = await stripe.prices.create({
             currency: "inr",
             unit_amount: amt,
@@ -33,13 +37,13 @@ export const createProduct = async (req, res) => {
                 interval: 'month',
             },
             product_data: {
-                name: prod_name,
+                name,
             },
         });
         const priceId = price.id
         const prodId = price.product
         const myProd = productDetails({
-            Name: prod_name,
+            Name: name,
             Product_Id: prodId,
             price: priceId
         })
@@ -54,17 +58,16 @@ export const createProduct = async (req, res) => {
 //delete the product 
 
 export const deleteProduct = async(req,res)=>{
-    const stripe = Stripe(STRIPE_KEY)
     try{
-        const {prod_name} = req.body
-        const product  = await productDetails.findOne({Name: prod_name})
-        const myProd = product.Product_Id
-        const deletedProd = await productDetails.deleteOne({Name : prod_name})
-        res.status(200).json(CircularJSON.stringify({deleteProduct}))
-        console.log(deletedProd)
+        const { name } = req.body
+       const myProd = await productDetails.findOne({Name: name})
+       console.log(name)
+       const deleteProd  = await productDetails.deleteOne({Name: name})
+       res.status(200).json(CircularJSON.stringify({deleteProd}))
     }
     catch(error){
         res.status(500).json(CircularJSON.stringify({message: error.message}))
+        console.log(error)
     }
 }
 
@@ -75,19 +78,20 @@ export const deleteProduct = async(req,res)=>{
 export const updateProd = async (req, res) => {
     const stripe = new Stripe(STRIPE_KEY)
     try {
-        const { prod_name, unit_amount } = req.body
-        const product = await productDetails.findOne({ Name: prod_name })
+        const { name, description } = req.body
+        console.log(name , description)
+        const product = await productDetails.findOne({ Name: name })
         const { Product_Id } = product
         const newPrice = await stripe.prices.create({
             product: Product_Id,
             currency: "INR",
-            unit_amount,
+            unit_amount: description,
             recurring: {
                 interval: 'month',
             }
         });
         const newPrice_Id = newPrice.id
-        const new_update = await productDetails.updateOne({ Name: prod_name },
+        const new_update = await productDetails.updateOne({ Name: name },
             {
                 $set: {
                     price: newPrice_Id
@@ -129,93 +133,71 @@ export const createCustomer = async (req, res) => {
 
 export const createSession = async (req, res) => {
     const stripe = new Stripe(STRIPE_KEY)
+    const { prod_name, email } = req.body
     try {
-        const { prod_name, user_name } = req.body
-        const product = await productDetails.findOne({ Name: prod_name })
-        const price = product.price
-        const user = await userDetails.findOne({ Name: user_name })
-        const cust_id = user.customer_Id
+        
+       const product = await productDetails.findOne({ Name: prod_name })
+       console.log("new product is : ", prod_name)
+       const price = product.price
+       console.log("Product price is :" , price)
+       const user = await userDetails.findOne({ email: email })
+       console.log("The email is :" , email)
+       const cust_id = user.customer_Id
         const session = await stripe.checkout.sessions.create({
             customer: cust_id,
-            success_url: 'https://example.com/success',
+            success_url: 'http://localhost:3000/success',
             line_items: [
                 {
                     price: price,
                     quantity: 1,
-                },
+                }
             ],
             mode: 'subscription',
         });
-        res.status(200).json(CircularJSON.stringify({ session }))
+        const sessionId = session.id
+        console.log(sessionId)
+        const updated_user = await userDetails.updateOne({email: email} ,{
+           $set: {
+               checkout_session_Id: sessionId
+            }
+        } )
+        res.status(200).json(CircularJSON.stringify({session}))
+        console.log(updated_user)
     }
     catch (error) {
         res.json(CircularJSON.stringify({ error: error.message }))
         console.log(error)
     }
 }
-//list all the subscription 
-
-export const listsubscriptions = async(req,res)=>{
-    const stripe = new Stripe(STRIPE_KEY)
-    try{
-        const {user_name} = req.body
-        const user = await userDetails.findOne({Name: user_name})
-        const cust_id = user.customer_Id
-        const subscriptions = await stripe.subscriptions.list({
-            customer: cust_id,
-            limit: 10,
-          });
-          res.status(200).send(subscriptions)
-    }
-    catch(error){
-        res.status(500).json(CircularJSON.stringify({messgae: error.message}))
-    }
-}
-
-
-
-
-
-//sending the invoice 
-export const sendInvoice = async (req, res) => {
-    const stripe = Stripe(STRIPE_KEY)
-    try {
-        const {user_name} = req.body
-        const user = await userDetails.findOne({ Name: user_name })
-        const invoiceId = user.InvoiceId
-        const invoice = await stripe.invoices.pay(invoiceId);
-        res.json(CircularJSON.stringify({ invoice }))
-    }
-    catch (error) {
-        res.status(500).json(CircularJSON.stringify({ error: error.message }))
-    }
-}
-
-//in_1OHly8SHUS8UbeViETZyKKR5
-//in_1OHlxdSHUS8UbeViP8Yi2RHm
-//in_1OHlxdSHUS8UbeViP8Yi2RHm
 
 //When after successful payment the customer clicks of done or something then this api to be called
 //This api to be triggred on the success page where a button would be avialable , Over which the click will trigger this api as well as this will also take the user to the home page after sucessful payment , here we will have to pass the name of the user from the front end
 export const getSubscription = async (req, res) => {
     const stripe = new Stripe(STRIPE_KEY)
     try {
-        const { user_name } = req.body
-        const my_user = await userDetails.findOne({Name: user_name})
+        const { email } = req.body
+        const my_user = await userDetails.findOne({email: email})
         const customerId = my_user.customer_Id
         console.log(customerId)
         const subscriptions = await stripe.subscriptions.list({
             customer: customerId,
-            limit: 10,
+            limit: 1,
         });
         const subsId = subscriptions.data.map(subscription => subscription.id).join(', ');
-        console.log(subsId)
-        const updated_user = await userDetails.updateOne({ Name: user_name },
+        const updated_user = await userDetails.updateOne({ email : email },
             {
                 $set: {
                     subscription_Id: subsId
                 },
             })
+            const substatus = subscriptions.data.map(subscription => subscription.status).join(', ');
+            const newUpdatedUser = await userDetails.updateOne({email: email},
+                {
+                    $set: {
+                        paymentStatus: substatus
+                    }
+                })
+            
         res.status(200).send({ updated_user })
         console.log(updated_user)
     }
@@ -224,23 +206,50 @@ export const getSubscription = async (req, res) => {
     }
 }
 
+
+//update subscription
+export const updateSubscription = async(req,res)=>{
+    const stripe = new Stripe(STRIPE_KEY)
+    try{
+        const {email , prod_name} = req.body
+        console.log("email is: " , email)
+        console.log("product name is :" , prod_name)
+        const reqProd =await productDetails.findOne({Name: prod_name})
+        const reqProd_Id = reqProd.price
+        console.log(reqProd_Id)
+        const reqUser =await userDetails.findOne({email: email})
+        const reqUser_Id = reqUser.subscription_Id
+        console.log(reqUser_Id)
+        const subscription = await stripe.subscriptions.update(
+            reqUser_Id,
+            {
+              metadata: {
+                price: reqProd_Id,
+              },
+            }
+          );
+          res.status(200).json(CircularJSON.stringify({subscription}))
+    }
+    catch(error){
+        res.json(CircularJSON.stringify({error: error.message}))
+    }
+}
+
+
 //Cancel Subscription 
 // this api will be triggred when the user wants to cancel the subscription , To activate this name of the user will be passed from the ui.
 export const cancelSubs = async (req, res) => {
     const stripe = new Stripe(STRIPE_KEY)
     try {
-        const { user_name } = req.body
-        const myuser = await userDetails.findOne({ Name: user_name })
+        const { email } = req.body
+        const myuser = await userDetails.findOne({ email: email })
         const subsId = myuser.subscription_Id
         const subscription = await stripe.subscriptions.cancel(
             subsId
         );
-        const updated_user = await userDetails.updateOne({ Name: user_name },
-            {
-                $set: {
-                    subscription_Id: null
-                },
-            })
+        console.log("this is:-" , subscription.id)
+        const updated_user = await userDetails.deleteOne({ email: email })
+
         res.status(200).json(CircularJSON.stringify({ subscription }))
 
     }
@@ -249,39 +258,9 @@ export const cancelSubs = async (req, res) => {
     }
 }
 
+//new approach for payment including the update subscription
 
-//update subscription
-//This api will be triggred when the user updates the subscription to the new product the billing cycle and the invoice will be generated on the next month of the current subscription .
-export const updateSubs = async (req, res) => {
-    const stripe = new Stripe(STRIPE_KEY)
-    try {
-        const { prod_name, user_name } = req.body
-        const product = await productDetails.findOne({ Name: prod_name })
-        const price = product.price
-        const user = await userDetails.findOne({ Name: user_name })
-        const subsId = user.subscription_Id
-        console.log(subsId)
-        const subscription = await stripe.subscriptions.update(
-            subsId,
-            {
-                metadata: {
-                    price,
-                },
-            }
-        );
-        const subs_Id = subscription.id
-        const updated_user = await userDetails.updateOne({ Name: user_name },
-            {
-                $set: {
-                    subscription_Id: subs_Id
-                },
-            })
-        res.status(200).send(({ subscription }))
-    }
-    catch (error) {
-        res.status(500).json(CircularJSON.stringify({ error: error.message }))
-    }
-}
+    
 
 
 //stripe invoicing test 
@@ -303,16 +282,129 @@ export const createInvoice = async (req, res) => {
 
 //Admin Stripe Key Validation 
 export const adminKeyValidation = async (req, res) => {
-    const { stripeKey } = req.body
-    const stripe = new Stripe(stripeKey)
+    const { stripeKey } = req.params;  // Retrieve the Stripe key from request parameters
+    const stripe = new Stripe(stripeKey);
+
     try {
         const products = await stripe.products.list({
             limit: 1,
         });
-        res.status(200).json(CircularJSON.stringify({ products }))
-        return products.status
+
+        res.status(200).json(CircularJSON.stringify({ products }));
+        return products.status;
+    } catch (error) {
+        res.status(500).json(CircularJSON.stringify({ error: error.message }));
     }
-    catch (error) {
-        res.status(500).json(CircularJSON.stringify({ error: error.message }))
+};
+
+
+
+//subscription status retrival 
+export const subscriptionStatus = async(req,res)=>{
+    const stripe = new Stripe(STRIPE_KEY)
+    try{
+        const {email} = req.body
+        const myUser = await userDetails.findOne({email: email})
+        const subscriptionId = myUser.subscription_Id
+        console.log(subscriptionId)
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const newStatus= subscription.status
+        const updated_user = await userDetails.updateOne({ email : email },
+            {
+                $set: {
+                    paymentStatus: newStatus
+                },
+            })
+         
+        console.log(updated_user)
+        res.status(200).json(CircularJSON.stringify({subscription}))
+    }
+    catch(error){
+        res.status(500).json(CircularJSON.stringify({error: error.message}))
     }
 }
+
+
+
+
+export const retrieveInvoice = async (req, res) => {
+    const stripe = new Stripe(STRIPE_KEY);
+  
+    try {
+        const {email} = req.body
+        const myCustomer = await userDetails.findOne({email: email})
+        const cusId = myCustomer.customer_Id
+        console.log(cusId)
+        const paymentMethod = await stripe.customers.invoices(
+             cusId,
+          );
+          res.status(200).json(CircularJSON.stringify({paymentMethod}))
+    } catch (error) {
+      res.status(500).json(CircularJSON.stringify({ error: error.message }));
+      console.log(error);
+    }
+  };
+
+//<!------------------------------------Case Sensitive Code "Dont touch or this will crash" Logic used here took all my brain cells to sort out the changing status of payment intent everytime this runs as the convetional method of subscription is not followed ---------------------!>//
+
+//node-cron
+//declaring the empty arrays to store the values stored inside the mongodb database and values inside the stripe database
+let allUserSubscriptions = [];
+let newUpdatedSubscription = [];
+
+const updateSubscriptionStatus = async () => {
+    const stripe = new Stripe(STRIPE_KEY)
+    try {
+      const myallData = await userDetails.find({});
+  
+      // Extract unique subscription IDs from user details
+      const subscriptionIdsSet = new Set(myallData.map(user => user.subscription_Id));
+      const subscriptionIds = [...subscriptionIdsSet];
+  
+      // Update allUserSubscriptions array with unique subscription IDs
+      const allUserSubscriptions = [...subscriptionIds];
+      console.log('All User Subscriptions:', allUserSubscriptions);
+  
+      const newUpdatedSubscription = [];
+  
+      // Retrieve updated subscription status for each unique subscription ID
+      for (let i = 0; i < allUserSubscriptions.length; i++) {
+        const subscriptionId = allUserSubscriptions[i];
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const newStatus = subscription.status;
+        newUpdatedSubscription.push({ subscriptionId, newStatus });
+  
+        // Update the user's payment status in the database
+        await userDetails.updateOne(
+          { subscription_Id: subscriptionId },
+          {
+            $set: {
+              paymentStatus: newStatus,
+            },
+          }
+        );
+      }
+  
+      // Delete users with a non-active status
+      for (let i = 0; i < allUserSubscriptions.length; i++) {
+        const subsId = allUserSubscriptions[i];
+        const requiredUser = await userDetails.findOne({ subscription_Id: subsId });
+        const status = requiredUser.paymentStatus;
+  
+        if (status !== 'active') {
+          // Use direct filter condition in deleteOne
+          const deleteResult = await userDetails.deleteOne({ subscription_Id: subsId });
+        }
+      }
+  
+      console.log('New Updated Subscriptions:', newUpdatedSubscription);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+  
+  // Schedule the cron job to run every 30 seconds
+  cron.schedule('*/30 * * * * *', () => {
+    console.log('Running cron job...');
+    updateSubscriptionStatus();
+  });

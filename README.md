@@ -41,3 +41,51 @@ from `https://www.mongodb.com/docs/manual/installation/`
 `/cancel : This API is triggered when the user clicks on "Cancel subscription" on the user interface. The user name and product priceId are taken from the Mongodb database and the user details in MongoDb are updated with null for subscriptionId or paymentsId`.
 
 `/updatesub: This API is triggered when the user clicks the "update Subscription" button on the UI, and it takes the username and new price ID from the UI and then updates the subscription on Stripe. The updated billing cycle with the difference will start from the end of the month of the existing subscription. The SubscriptionId in the MongoDb database is not updated as the SubscriptionId remains the same after the update.`
+
+
+## Subscription Status Update Automation
+
+`updateSubscriptionStatus(): (/route/route.js)`
+
+### This module automates the process of updating and managing subscription statuses for users leveraging a third-party service, Stripe, for payment management.
+
+## Objective
+`The primary goal of this module is to synchronize and maintain the payment status of user subscriptions stored in the local database with the actual status obtained from the Stripe payment gateway.`
+
+## Overview
+ 1) Data Collection: Retrieves user details from the local database containing subscription information.
+ 2) Stripe Integration: Utilizes the Stripe API to fetch updated subscription statuses associated with unique subscription IDs.
+ 3) Database Update: Updates the payment status of users in the local database based on the retrieved status from Stripe.
+ 4) Maintenance: Removes users from the database whose subscription status is non-active.
+
+### Code Execution
+
+1) Initialization: Initializes required variables and Stripe configuration.
+2) Data Retrieval: Fetches user details containing subscription IDs.
+3) Subscription Status Update:
+        a) Extraction: Identifies unique subscription IDs from user data.
+        b) Status Retrieval: Fetches the latest status for each subscription from Stripe.
+        c) Database Update: Updates the payment status for each user in the local database.
+4) Database Cleanup: Removes users with a non-active payment status from the database.
+5) Scheduling: Sets up a recurring task using Cron to execute the process at regular intervals.
+
+### Schedule
+
+`The cron job is scheduled to run every 30 seconds to ensure timely synchronization of subscription statuses Considerations`
+
+    1) Ensure proper configuration of Stripe credentials (STRIPE_KEY).
+    2) Regularly monitor and verify the synchronization process and database integrity.
+
+### Dependencies
+
+    1) Node.js
+    2) Stripe (stripe-node package)
+    3) MongoDB (userDetails collection)
+
+### Usage
+
+`Integrate this module into your Node.js application and configure the necessary Stripe credentials and database connections.`
+
+### Notes
+    1) Adjust cron scheduling according to specific synchronization requirements.
+    2) Review error handling to capture and manage potential issues during the synchronization process

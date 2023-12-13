@@ -1,4 +1,5 @@
                                    Stripe Payment Gateway Integration 
+                                   *****
 ## Installation 
 
 1) Clone the Project , Then run npm install to download the dependencies .

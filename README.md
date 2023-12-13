@@ -1,4 +1,4 @@
-Stripe Payment Gateway Integration 
+# Stripe Payment Gateway Integration 
 *********
 ## Installation 
 

@@ -87,6 +87,16 @@ from `https://www.mongodb.com/docs/manual/installation/`
 
 `Integrate this module into your Node.js application and configure the necessary Stripe credentials and database connections.`
 
-### Notes
-    1) Adjust cron scheduling according to specific synchronization requirements.
-    2) Review error handling to capture and manage potential issues during the synchronization process
+## Notes
+********
+    The automated process is designed to commence automatically upon the initiation of the application's Express Server. In the initial state, when the customer's database is devoid of 
+    users, and no payments have been transacted via Stripe, resulting in an absence of payment status data, the automation process will consistently yield an error. Additionally, the 
+    output arrays, namely "All User Subscriptions" and "New Updated Subscriptions," will remain empty ([]).
+    It is imperative to note that this occurrence does not disrupt any server processes. The automation mechanism operates asynchronously, allowing it to function independently of 
+    synchronous constraints. Subsequently, it autonomously retrieves customer information and their respective payment statuses from both the Stripe and MongoDB databases. This 
+    initialization happens seamlessly without necessitating a restart or any manual intervention.
+    The design ensures a robust and resilient automation process, capable of adapting to changes in the system environment, guaranteeing consistent and reliable performance.
+
+
+       1) Adjust cron scheduling according to specific synchronization requirements.
+       2) Review error handling to capture and manage potential issues during the synchronization process
